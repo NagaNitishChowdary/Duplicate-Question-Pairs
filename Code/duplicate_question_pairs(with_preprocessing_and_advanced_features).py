@@ -474,3 +474,493 @@ new_df
 # =============================================================================
 
 
+# Length Features
+# ---------------
+
+# pip install distance
+import distance
+
+def fetch_length_features(row):
+    q1 = row['question1']
+    q2 = row['question2']
+    
+    length_features = [0.0]*3
+    
+    # Converting the Sentence into Tokens 
+    q1_tokens = q1.split()
+    q2_tokens = q2.split()
+    
+    if(len(q1_tokens) == 0 or len(q2_tokens) == 0):
+        return length_features
+    
+    
+    # ABSOLUTE LENGTH FEATURES 
+    length_features[0] = abs(len(q1_tokens) - len(q2_tokens))
+    
+    # AVERAGE TOKEN LENGTH OF BOTH QUESTIONS 
+    length_features[1] = (len(q1_tokens) + len(q2_tokens))/2 
+    
+    strs = list(distance.lcsubstrings(q1,q2))
+    
+    if(len(strs) != 0):
+        length_features[2] = len(strs[0]) / (min(len(q1) , len(q2)) + 1)
+    
+    return length_features
+
+length_features = new_df.apply(fetch_length_features,axis=1)
+
+new_df['abs_len_diff'] = list(map(lambda x : x[0], length_features))
+new_df['mean_len'] = list(map(lambda x : x[1], length_features))
+new_df['longest_substr_ratio'] = list(map(lambda x : x[2], length_features))
+
+
+new_df
+"""
+            id    qid1    qid2  ... abs_len_diff mean_len  longest_substr_ratio
+398782  398782  496695  532029  ...            0     12.0              0.844156
+115086  115086  187729  187730  ...            3     13.5              0.220000
+327711  327711  454161  454162  ...            8     21.0              0.047170
+367788  367788  498109  491396  ...           18     21.0              0.050000
+151235  151235  237843   50930  ...            4      7.0              0.555556
+       ...     ...     ...  ...          ...      ...                   ...
+243932  243932   26193  356455  ...            0      7.0              0.761905
+91980    91980  154063  154064  ...            4     14.0              0.260870
+266955  266955  133017  384210  ...            3     15.5              0.135135
+71112    71112  122427  122428  ...            0     10.0              0.282609
+312470  312470  436915  436916  ...            1     14.5              0.192308
+
+[30000 rows x 24 columns]
+"""
+
+# =============================================================================
+
+
+# FUZZY FEATURES
+# --------------
+
+# pip install fuzzywuzzy
+from fuzzywuzzy import fuzz
+
+def fetch_fuzzy_features(row):
+    
+    q1 = row['question1']
+    q2 = row['question2']
+    
+    fuzzy_features = [0.0]*4
+    
+    # FUZZY RATIO
+    fuzzy_features[0] = fuzz.QRatio(q1, q2)
+    
+    # FUZZY PARTIAL RATIO 
+    fuzzy_features[1] = fuzz.partial_ratio(q1,q2)
+    
+    # TOKEN_SORT_RATIO 
+    fuzzy_features[2] = fuzz.token_sort_ratio(q1, q2)
+    
+    # TOKEN_SET_RATIO
+    fuzzy_features[3] = fuzz.token_set_ratio(q1,q2)
+    
+    return fuzzy_features 
+
+
+fuzzy_features = new_df.apply(fetch_fuzzy_features,axis=1)
+
+
+# Creating new feature columns for fuzzy features
+new_df['fuzz_ratio'] = list(map(lambda x:x[0] , fuzzy_features))
+new_df['fuzz_partial_ratio'] = list(map(lambda x:x[1] , fuzzy_features))
+new_df['token_sort_ratio'] = list(map(lambda x:x[2] , fuzzy_features))
+new_df['token_set_ratio'] = list(map(lambda x:x[3] , fuzzy_features))
+
+new_df
+"""
+            id    qid1  ...  token_sort_ratio token_set_ratio
+398782  398782  496695  ...                99              99
+115086  115086  187729  ...                65              74
+327711  327711  454161  ...                34              43
+367788  367788  498109  ...                23              30
+151235  151235  237843  ...                48              69
+       ...     ...  ...               ...             ...
+243932  243932   26193  ...                77              89
+91980    91980  154063  ...                49              51
+266955  266955  133017  ...                56              67
+71112    71112  122427  ...                72              74
+312470  312470  436915  ...                61              62
+
+[30000 rows x 28 columns]
+"""
+
+# =============================================================================
+
+
+# USING TNSE FOR DIMENSIONALITY REDUCTION FOR 15 FEATURES
+# (GENERATED AFTER CLEANING THE DATA) TO 3 DIMENSION
+
+
+from sklearn.preprocessing import MinMaxScaler 
+
+X = MinMaxScaler().fit_transform(new_df[['cwc_min','cwc_max','csc_min','csc_max','ctc_min','ctc_max','last_word_eq','first_word_eq','abs_len_diff','mean_len','longest_substr_ratio','fuzz_ratio','fuzz_partial_ratio','token_sort_ratio','token_set_ratio']])
+y = new_df['is_duplicate'].values
+
+
+from sklearn.manifold import TSNE
+
+tsne2d = TSNE(
+    n_components=2,
+    init='random',  #PCA
+    random_state = 101,
+    method = 'barnes_hut',
+    n_iter = 1000,
+    verbose = 2,
+    angle=0.5
+    ).fit_transform(X)
+
+
+tsne3d = TSNE(
+    n_components = 3,
+    init='random',  #PCA
+    random_state = 101,
+    method = 'barnes_hut',
+    n_iter = 1000,
+    verbose = 2,
+    angle=0.5
+    ).fit_transform(X)
+
+
+# =============================================================================
+
+final_df = new_df.drop(columns=['id','qid1','qid2','question1','question2'])
+final_df.head()
+"""
+        is_duplicate  q1_len  ...  token_sort_ratio  token_set_ratio
+398782             1      76  ...                99               99
+115086             0      49  ...                65               74
+327711             0     105  ...                34               43
+367788             0      59  ...                23               30
+151235             0      35  ...                48               69
+""" 
+
+ques_df = new_df[['question1','question2']]
+ques_df.head()
+"""
+                                                question1                                          question2
+398782  what is the best marketing automation tool for...  what is the best marketing automation tool for...
+115086  i am poor but i want to invest. what should i do?  i am quite poor and i want to be very rich. wh...
+327711  i am from india and live abroad. i met a guy f...  t.i.e.t to thapar university to thapar univers...
+367788  why do so many people in the u.s. hate the sou...  my boyfriend doesnt feel guilty when he hurts ...
+151235                consequences of bhopal gas tragedy?  what was the reason behind the bhopal gas trag...
+"""
+
+# =============================================================================
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+# Merge Texts 
+questions = list(ques_df['question1']) + list(ques_df['question2'])
+
+cv = CountVectorizer(max_features=3000)
+q1_arr, q2_arr = np.vsplit(cv.fit_transform(questions).toarray(),2)
+
+q1_arr.shape
+"""
+array([[0, 0, 0, ..., 0, 0, 0],
+       [0, 0, 0, ..., 0, 0, 0],
+       [0, 0, 0, ..., 0, 0, 0],
+       ...,
+       [0, 0, 0, ..., 0, 0, 0],
+       [0, 0, 0, ..., 0, 0, 0],
+       [0, 0, 0, ..., 0, 0, 0]], dtype=int64)
+
+(30000, 3000)
+"""
+
+# =============================================================================
+
+temp_df1 = pd.DataFrame(q1_arr, index=ques_df.index)
+temp_df2 = pd.DataFrame(q2_arr, index=ques_df.index)
+temp_df = pd.concat([temp_df1, temp_df2], axis=1)
+
+temp_df
+"""
+        0     1     2     3     4     5     ...  2994  2995  2996  2997  2998  2999
+398782     0     0     0     0     0     0  ...     0     0     0     0     0     0
+115086     0     0     0     0     0     0  ...     0     0     0     0     0     0
+327711     0     0     0     0     0     0  ...     0     0     0     0     0     0
+367788     0     0     0     0     0     0  ...     0     0     0     0     0     0
+151235     0     0     0     0     0     0  ...     0     0     0     0     0     0
+     ...   ...   ...   ...   ...   ...  ...   ...   ...   ...   ...   ...   ...
+243932     0     0     0     0     0     0  ...     0     0     0     0     0     0
+91980      0     0     0     0     0     0  ...     0     0     0     0     0     0
+266955     0     0     0     0     0     0  ...     0     0     0     0     0     0
+71112      0     0     0     0     0     0  ...     0     0     0     0     0     0
+312470     0     0     0     0     1     0  ...     0     0     0     0     0     0
+
+[30000 rows x 6000 columns]
+"""
+
+# =============================================================================
+
+
+final_df = pd.concat([final_df,temp_df], axis=1)
+final_df
+"""
+        is_duplicate  q1_len  q2_len  q1_num_words  ...  2996  2997  2998  2999
+398782             1      76      77            12  ...     0     0     0     0
+115086             0      49      57            12  ...     0     0     0     0
+327711             0     105     120            25  ...     0     0     0     0
+367788             0      59     146            12  ...     0     0     0     0
+151235             0      35      50             5  ...     0     0     0     0
+             ...     ...     ...           ...  ...   ...   ...   ...   ...
+243932             1      42      41             7  ...     0     0     0     0
+91980              0      68      71            12  ...     0     0     0     0
+266955             0      73      98            14  ...     0     0     0     0
+71112              1      51      45            10  ...     0     0     0     0
+312470             1      87      77            15  ...     0     0     0     0
+
+[30000 rows x 6023 columns]
+"""
+
+
+# =============================================================================
+
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, Y_train, Y_test = train_test_split(final_df.iloc[:, 1:],final_df.iloc[:,0],test_size=0.2,random_state=42)
+
+
+"""
+Feature names are only supported if all input features have string names, 
+but your input has ['int', 'str'] as feature name / column name types. 
+If you want feature names to be stored and validated, you must convert 
+them all to strings, by using X.columns = X.columns.astype(str)
+"""
+X_train.columns = X_train.columns.astype(str)
+X_test.columns = X_test.columns.astype(str)
+
+# =============================================================================
+
+from sklearn.ensemble import RandomForestClassifier
+rfc = RandomForestClassifier()
+rfc.fit(X_train, Y_train)
+Y_Pred = rfc.predict(X_test)
+
+from sklearn.metrics import accuracy_score
+print("Accuracy_Score using Random Forest Classifier: ",accuracy_score(Y_Pred,Y_test).round(2))
+# 0.79  ---> more better after adding the Advanced Features
+
+# =============================================================================
+
+"""
+          Predict
+          0     1
+
+       0  ok  not_ok
+Actual
+       1  ok   ok 
+
+
+If the questions are NOT DUPLICATE, but if our model predicate as DUPLICATE
+and if we merges, then user experience gets worst.
+
+"""
+
+from sklearn.metrics import confusion_matrix
+confusion_matrix(Y_test,Y_Pred)
+"""
+array([[3154,  645],
+       [ 595, 1606]], dtype=int64)
+"""
+
+# Here 645 predictions are dangerous
+
+# Finally we got roughly 80% ACCURACY 
+
+# HERE WE HAVE TAKEN ONLY 30000 SAMPLES, WE CAN INCREASE MORE SAMPLES, 
+# THEN ACCURACY WILL BE INCREASED. 
+
+
+# =============================================================================
+
+
+# we can increase accuracy by 
+
+# 1) Increase data 
+# 2) preprocessing ---> stemming
+# 3) Apply more algorithms ---> SVM logistic, Hyper parameter tuning , cross validation
+# 4) More Features 
+# 5) Bag of Words ---> tfidf, word2vec, tfidf weighted w2v
+# 6) Apply deep learning( LSTM neural network, transformers)
+
+
+# =============================================================================
+
+# Prediction Part wheather the 2 questions are same or not 
+
+def test_common_words(w1,w2):
+    w1 = set(map(lambda word: word.lower().strip(), w1.split(" ")))
+    w2 = set(map(lambda word: word.lower().strip() , w2.split(" ")))
+    return len(w1 & w2)
+
+def test_total_words(w1,w2):
+    w1 = set(map(lambda word: word.lower().strip(), w1.split(" ")))
+    w2 = set(map(lambda word: word.lower().strip() , w2.split(" ")))
+    return len(w1) + len(w2)
+
+def test_fetch_token_features(q1,q2):
+    SAFE_DIV = 0.0001
+    
+    STOP_WORDS = stopwords.words('english')
+    
+    # IF DATA DOESN'T CAME PROPERLY OR IS THERE ANY PROBLEM JUST RETURN TOKEN_FREATURES
+    token_features = [0.0]*8    
+    
+    # CONVERTING THE SENTENCE INTO TOKENS 
+    
+    q1_tokens = q1.split()
+    q2_tokens = q2.split() 
+    
+    if(len(q1_tokens) == 0 or len(q2_tokens) == 0):
+        return token_features
+    
+    # GET THE NON-STOPWORDS FROM QUESTIONS 
+    q1_words = set([word for word in q1_tokens if word not in STOP_WORDS])
+    q2_words = set([word for word in q2_tokens if word not in STOP_WORDS])
+    
+    # GET THE STOPWORDS IN QUESTIONS 
+    q1_stops = set([word for word in q1_tokens if word in STOP_WORDS])
+    q2_stops = set([word for word in q2_tokens if word in STOP_WORDS])
+    
+    
+    # GET THE COMMON NON-STOPWORDS FROM QUESTION PAIR
+    common_word_count = len(q1_words.intersection(q2_words))
+    
+    # GET THE COMMON STOPWORDS FROM QUESTION PAIR 
+    common_stop_count = len(q1_stops.intersection(q2_stops))
+    
+    # GET THE COMMON TOKENS FROM QUESTION PAIRS
+    common_token_count = len(set(q1_tokens).intersection(set(q2_tokens)))
+    
+    
+    token_features[0] = common_word_count/(min(len(q1_words) , len(q2_words)) + SAFE_DIV)
+    token_features[1] = common_word_count/(max(len(q1_words) , len(q2_words)) + SAFE_DIV)
+    token_features[2] = common_stop_count/(min(len(q1_stops) , len(q2_stops)) + SAFE_DIV)
+    token_features[3] = common_stop_count/(max(len(q1_stops) , len(q2_stops)) + SAFE_DIV)
+    token_features[4] = common_token_count/(min(len(q1_tokens) , len(q2_tokens)) + SAFE_DIV)
+    token_features[5] = common_token_count/(max(len(q1_tokens) , len(q2_tokens)) + SAFE_DIV)
+    
+    # LAST WORD OF BOTH QUESTION IS SAME OR NOT
+    token_features[6] = int(q1_tokens[-1] == q2_tokens[-1])
+    
+    # FIRST WORD OF SAME QUESTION IS SAME OR NOT 
+    token_features[7] = int(q1_tokens[0] == q2_tokens[0])
+    
+    return token_features
+
+def test_fetch_length_features(q1,q2):
+    
+    length_features = [0.0]*3
+    
+    # Converting the Sentence into Tokens 
+    q1_tokens = q1.split()
+    q2_tokens = q2.split()
+    
+    if(len(q1_tokens) == 0 or len(q2_tokens) == 0):
+        return length_features
+    
+    
+    # ABSOLUTE LENGTH FEATURES 
+    length_features[0] = abs(len(q1_tokens) - len(q2_tokens))
+    
+    # AVERAGE TOKEN LENGTH OF BOTH QUESTIONS 
+    length_features[1] = (len(q1_tokens) + len(q2_tokens))/2 
+    
+    strs = list(distance.lcsubstrings(q1,q2))
+    
+    if(len(strs) != 0):
+        length_features[2] = len(strs[0]) / (min(len(q1) , len(q2)) + 1)
+    
+    return length_features
+
+
+def test_fetch_fuzzy_features(q1,q2):
+    
+    fuzzy_features = [0.0]*4
+    
+    # FUZZY RATIO
+    fuzzy_features[0] = fuzz.QRatio(q1, q2)
+    
+    # FUZZY PARTIAL RATIO 
+    fuzzy_features[1] = fuzz.partial_ratio(q1,q2)
+    
+    # TOKEN_SORT_RATIO 
+    fuzzy_features[2] = fuzz.token_sort_ratio(q1, q2)
+    
+    # TOKEN_SET_RATIO
+    fuzzy_features[3] = fuzz.token_set_ratio(q1,q2)
+    
+    return fuzzy_features 
+
+def query_point_creator(q1,q2):
+    input_query = []  # stores all 22 features
+    
+    # preprocess 
+    q1 = preprocess(q1)
+    q2 = preprocess(q2)
+    
+    # Fetch basic features 
+    input_query.append(len(q1))
+    input_query.append(len(q2))
+    
+    input_query.append(len(q1.split(" ")))
+    input_query.append(len(q2.split(" ")))
+    
+    input_query.append(test_common_words(q1,q2))
+    input_query.append(test_total_words(q1,q2))
+    input_query.append(round(test_common_words(q1,q2)/test_total_words(q1,q2),2))
+    
+    
+    # FETCH TOKEN FEATURES 
+    token_features = test_fetch_token_features(q1,q2)
+    input_query.extend(token_features)
+    
+    
+    # FETCH LENGTH BASED FEATURES 
+    length_features = test_fetch_length_features(q1,q2)
+    input_query.extend(length_features)
+    
+    
+    # FETCH FUZZY FEATURES 
+    fuzzy_features = test_fetch_fuzzy_features(q1,q2)
+    input_query.extend(fuzzy_features)
+    
+    # bow(bag of words) feature for q1
+    q1_bow = cv.transform([q1]).toarray()
+    
+    # bow(bag of words) feature for q2 
+    q2_bow = cv.transform([q2]).toarray() 
+    
+    
+    return np.hstack((np.array(input_query).reshape(1,22),q1_bow,q2_bow))
+
+
+q1 = "Where is the capital of India?"
+q2 = "What is the current capital of India?"
+
+
+query_point_creator(q1,q2)
+# array([[30., 37.,  6., ...,  0.,  0.,  0.]])
+# (1, 6022)
+
+
+rfc.predict(query_point_creator(q1,q2))
+# array([1], dtype=int64)   ---> same questions 
+
+# =============================================================================
+
+q3 = "Where is the capital of India?"
+q4 = "What is the current capital of Pakistan?"
+
+rfc.predict(query_point_creator(q3,q4))
+# array([0], dtype=int64) ---> different questions 
+
+# =============================================================================
