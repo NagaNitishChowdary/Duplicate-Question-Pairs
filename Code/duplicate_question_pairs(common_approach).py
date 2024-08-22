@@ -180,17 +180,17 @@ ques_df
 
 """
                                                 question1                                          question2
-95650   Is there any way to hide the "online" from Wha...               How can I hide "online" in WhatsApp?
-392370  What course in university that you thought was...  Job prospects for TISS Mumbai ma in public pol...
-176416  What is the remainder when 2^468 is divided by...  What is the remainder when [math]3^{147} [/mat...
-307262  If there were an index to indicate the all aro...  Learning Languages: What is the best way to le...
-2349                  What are some thoughts about death?             What do you think happens after death?
+30005      Why should I upgrade my iPhone 5 to iPhone 5s?  Should I upgrade to the iPhone 6 if I have an ...
+167354  I want to learn programming. Is MIT OpenCourse...  I feel someone has hacked into my phone. How c...
+350640                Why aren't Apple’s USB3 ports blue?  Why aren't USB3 ports on Macs blue, like on mo...
+198339  What's the meaning of the song 'my youth is yo...  What is your favorite Beatles song? And why do...
+200177  If elected president, should Hillary Clinton p...  If Hillary Clinton wins, would she nominate Ba...
                                                   ...                                                ...
-339704            Is it good to do MBA after Engineering?   Why it is necessary to do MBA after engineering?
-85179     What is the average rent of 1 BHK in Bangalore?  What is the average rent of a 1 BHK flat in De...
-2174                   Can I use Jio 4G sim in 3G mobile?                               Jio 4G on 3G mobile?
-251163  What are the advantages and disadvantages of u...  What ser some advantages and disadvantages of ...
-328834          What are the problems in cloud computing?          What problems does cloud computing solve?
+395276        Which is the best joke you have ever heard?  What are some of funniest jokes that you have ...
+171614  Is it possible to survive with a gross salary ...  Is it possible to survive with a gross salary ...
+56577                     What are the GD topics for IIT?                           What are some GD topics?
+346838            Which state in Nepal speaks pure Hindi?                     Which state speaks pure Hindi?
+323396                               Why are people lazy?                          Why are some people lazy?
 
 [30000 rows x 2 columns]
 """
@@ -201,10 +201,52 @@ ques_df
 from sklearn.feature_extraction.text import CountVectorizer 
 # merge texts 
 questions = list(ques_df['question1']) + list(ques_df['question2'])
+questions[0]
+# 'Why should I upgrade my iPhone 5 to iPhone 5s?'
+questions[1]
+# 'I want to learn programming. Is MIT OpenCourseWare a good choice?'
 len(questions)
 # 60000
 
+"""
+The CountVectorizer() method in NLP is used to convert text data into a 
+numerical representation that can be processed by machine learning algorithms. 
+This process is known as vectorization.
+
+Here's how it works:
+Tokenization: The CountVectorizer() method first breaks down the text into 
+------------
+individual words or tokens.
+
+Vocabulary Creation: It then creates a vocabulary of all unique words 
+-------------------
+encountered in the text data.
+
+Vectorization: For each document in the dataset, a numerical vector is created. 
+-------------
+The length of the vector is equal to the size of the vocabulary. Each element 
+in the vector represents the frequency of a corresponding word in the document.
+"""
 cv = CountVectorizer(max_features=3000) # e.g. considering 3000 words
+"""
+Why is it used?
+
+Machine Learning Compatibility: Most machine learning algorithms require 
+-------------------------------
+numerical data as input. The CountVectorizer() method transforms text data 
+into a numerical format that can be used by these algorithms.
+
+Feature Engineering: It can be used as a feature engineering technique to 
+------------------
+extract meaningful features from text data. The frequency of words can provide 
+valuable information about the content of a document.
+
+Similarity Measures: The numerical representation can be used to calculate 
+-------------------
+similarity between documents based on their word frequencies. This is useful 
+for tasks like document clustering and recommendation systems.
+"""
+
 q1_arr, q2_arr = np.vsplit(cv.fit_transform(questions).toarray(),2)
 
 # cv.fit_transform(questions).toarray().shape   
